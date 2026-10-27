@@ -1,122 +1,135 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useCallback, useState } from 'react';
+import { Header } from './components/Header';
+import { TestSelector } from './components/TestSelector';
+import { SelectedChips } from './components/SelectedChips';
+import { PlanSummary } from './components/PlanSummary';
+import { StatusAlert } from './components/StatusAlert';
+import { useCatalog } from './hooks/useCatalog';
+import { usePlanCalculator } from './hooks/usePlanCalculator';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export const App: React.FC = () => {
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
+
+  // Load available lab tests
+  const {
+    tests,
+    testMap,
+    testNameMap,
+    isLoading: isLoadingCatalog,
+    error: catalogError,
+    refetch: refetchCatalog,
+  } = useCatalog();
+
+  // Dynamic live plan calculation with race-condition protection
+  const {
+    plan,
+    isLoading: isCalculatingPlan,
+    error: planError,
+  } = usePlanCalculator(selectedTestIds, testNameMap);
+
+  // Toggle test selection while preserving selection order
+  const handleToggleTest = useCallback((id: string) => {
+    setSelectedTestIds((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((item) => item !== id);
+      }
+      return [...prev, id]; // Appends in selection order
+    });
+  }, []);
+
+  // Remove a single test chip
+  const handleRemoveTest = useCallback((id: string) => {
+    setSelectedTestIds((prev) => prev.filter((item) => item !== id));
+  }, []);
+
+  // Clear all selections
+  const handleClearAll = useCallback(() => {
+    setSelectedTestIds([]);
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      <Header />
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {catalogError ? (
+        <div className="catalog-error-container">
+          <StatusAlert
+            type="error"
+            message={catalogError}
+            onRetry={refetchCatalog}
+          />
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      ) : (
+        <main className="main-layout">
+          {/* Left Column: Test Selection */}
+          <section className="selection-column">
+            <SelectedChips
+              selectedIds={selectedTestIds}
+              testMap={testMap}
+              onRemove={handleRemoveTest}
+              onClearAll={handleClearAll}
+            />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
+            <TestSelector
+              tests={tests}
+              selectedIds={selectedTestIds}
+              onToggleTest={handleToggleTest}
+              isLoadingCatalog={isLoadingCatalog}
+            />
+          </section>
 
-export default App
+          {/* Right Column: Dynamic Plan & Savings Breakdown */}
+          <aside className="plan-column" aria-label="Bundle recommendations">
+            <div className="plan-sticky-wrapper">
+              <div className="plan-column-header">
+                <h2>Optimal Plan Recommendation</h2>
+                <p>Real-time calculation based on your selected tests</p>
+              </div>
+
+              {/* State handling: Empty Selection */}
+              {selectedTestIds.length === 0 && (
+                <StatusAlert
+                  type="empty"
+                  message="Choose one or more lab tests to see which health package or test combination gives you the lowest price."
+                />
+              )}
+
+              {/* State handling: Loading */}
+              {selectedTestIds.length > 0 && isCalculatingPlan && (
+                <StatusAlert
+                  type="loading"
+                  message="Calculating optimal bundle..."
+                />
+              )}
+
+              {/* State handling: Error in Plain Language */}
+              {selectedTestIds.length > 0 && !isCalculatingPlan && planError && (
+                <StatusAlert type="error" message={planError} />
+              )}
+
+              {/* State handling: Success Result */}
+              {selectedTestIds.length > 0 && !isCalculatingPlan && !planError && plan && (
+                <PlanSummary plan={plan} testMap={testMap} />
+              )}
+
+              <div className="guarantee-card">
+                <div className="guarantee-icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <div className="guarantee-text">
+                  <strong>MedEx Best-Price Guarantee</strong>
+                  <span>We evaluate all valid packages and individual tests to guarantee you never overpay.</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </main>
+      )}
+    </div>
+  );
+};
+
+export default App;

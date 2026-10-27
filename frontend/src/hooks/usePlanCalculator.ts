@@ -43,15 +43,13 @@ export function usePlanCalculator(
 
     // Rule: Empty selection state
     if (selectedTestIds.length === 0) {
-      setPlan(null);
-      setError(null);
-      setIsLoading(false);
+      queueMicrotask(() => {
+        setPlan(null);
+        setError(null);
+        setIsLoading(false);
+      });
       return;
     }
-
-    // Start loading state immediately so UI gives instant feedback
-    setIsLoading(true);
-    setError(null);
 
     // Increment request ID to track latest call
     const currentRequestId = ++requestIdRef.current;
@@ -59,6 +57,14 @@ export function usePlanCalculator(
     // Create a new AbortController for this request
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    // Start loading state via microtask
+    queueMicrotask(() => {
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(true);
+        setError(null);
+      }
+    });
 
     // Debounce by 150ms to batch rapid successive clicks
     debounceTimerRef.current = setTimeout(async () => {

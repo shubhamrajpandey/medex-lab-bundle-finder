@@ -20,18 +20,16 @@ export function useCatalog(): UseCatalogResult {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const loadData = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
-    setError(null);
-
     try {
       const data = await fetchTests(signal);
       setTests(data);
+      setError(null);
     } catch (err: unknown) {
       if (err instanceof DOMException && err.name === 'AbortError') {
-        return; // Component unmounted, ignore
+        return;
       }
-
       if (err instanceof ApiError) {
         setError(err.friendlyMessage);
       } else {
@@ -44,12 +42,29 @@ export function useCatalog(): UseCatalogResult {
 
   useEffect(() => {
     const controller = new AbortController();
-    load(controller.signal);
+
+    fetchTests(controller.signal)
+      .then((data) => {
+        setTests(data);
+        setError(null);
+        setIsLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          return;
+        }
+        if (err instanceof ApiError) {
+          setError(err.friendlyMessage);
+        } else {
+          setError('Failed to load lab tests. Please check your connection and try again.');
+        }
+        setIsLoading(false);
+      });
 
     return () => {
       controller.abort();
     };
-  }, [load]);
+  }, []);
 
   const testMap = useMemo(() => {
     const map = new Map<string, LabTest>();
@@ -68,8 +83,8 @@ export function useCatalog(): UseCatalogResult {
   }, [tests]);
 
   const refetch = useCallback(async () => {
-    await load();
-  }, [load]);
+    await loadData();
+  }, [loadData]);
 
   return {
     tests,
