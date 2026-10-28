@@ -9,9 +9,14 @@ import type { LabPackage, LabTest, RawCatalogData, SanitizedCatalog } from './ca
  * 5. Removes nonexistent test IDs within packages (e.g. P12 has T99).
  */
 export function sanitizeCatalog(raw: RawCatalogData): SanitizedCatalog {
+  const warnings: string[] = [];
   const allTests = new Map<string, LabTest>();
+
   for (const test of raw.tests) {
     allTests.set(test.id, test);
+    if (!test.status) {
+      warnings.push(`Test ${test.id} (${test.code}) is inactive and will be excluded from selectable tests`);
+    }
   }
 
   const selectableTests = raw.tests.filter((test) => test.status === true);
@@ -21,6 +26,7 @@ export function sanitizeCatalog(raw: RawCatalogData): SanitizedCatalog {
   for (const pkg of raw.packages) {
     // Rule 4: Only packages with status: true can be used
     if (!pkg.status) {
+      warnings.push(`Package ${pkg.id} ("${pkg.name}") is inactive and will be excluded from usable packages`);
       continue;
     }
 
@@ -30,11 +36,14 @@ export function sanitizeCatalog(raw: RawCatalogData): SanitizedCatalog {
     for (const testId of pkg.testIds) {
       // Rule 6: Handle catalog mistakes - drop nonexistent IDs (e.g. T99)
       if (!allTests.has(testId)) {
+        warnings.push(`Package ${pkg.id} ("${pkg.name}") references unknown test ${testId}; removed`);
         continue;
       }
 
       // Rule 6: Deduplicate test IDs inside package
-      if (!seenIds.has(testId)) {
+      if (seenIds.has(testId)) {
+        warnings.push(`Package ${pkg.id} ("${pkg.name}") contains duplicate test ${testId}; deduplicated`);
+      } else {
         seenIds.add(testId);
         cleanedIds.push(testId);
       }
@@ -53,5 +62,6 @@ export function sanitizeCatalog(raw: RawCatalogData): SanitizedCatalog {
     allTests,
     selectableTests,
     usablePackages,
+    warnings,
   };
 }

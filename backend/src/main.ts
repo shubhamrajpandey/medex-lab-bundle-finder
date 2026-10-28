@@ -14,8 +14,12 @@ function bootstrap(): void {
     const sanitized = sanitizeCatalog(rawData);
     const catalogRepo = new InMemoryCatalogRepository(sanitized);
 
+    for (const warning of sanitized.warnings) {
+      logger.warn(`[Catalog Warning] ${warning}`);
+    }
+
     logger.info(
-      `Catalog initialized with ${sanitized.selectableTests.length} selectable tests and ${sanitized.usablePackages.length} usable packages.`,
+      `catalog loaded: ${sanitized.selectableTests.length} tests, ${sanitized.usablePackages.length} packages, ${sanitized.warnings.length} warnings`,
     );
 
     const app = createApp({ catalogRepo });

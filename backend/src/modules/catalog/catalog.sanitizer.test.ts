@@ -59,4 +59,14 @@ describe('catalog.sanitizer', () => {
     expect(p02).toBeDefined();
     expect(p02?.testIds).toEqual(['T01', 'T02']);
   });
+
+  it('records warnings for inactive tests, inactive packages, duplicate test IDs, and unknown test IDs', () => {
+    const sanitized = sanitizeCatalog(mockRawData);
+
+    expect(sanitized.warnings).toHaveLength(4);
+    expect(sanitized.warnings.some((w) => w.includes('T19'))).toBe(true);
+    expect(sanitized.warnings.some((w) => w.includes('P03'))).toBe(true);
+    expect(sanitized.warnings.some((w) => w.includes('duplicate test T01'))).toBe(true);
+    expect(sanitized.warnings.some((w) => w.includes('unknown test T99'))).toBe(true);
+  });
 });

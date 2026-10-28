@@ -28,4 +28,5 @@ export interface SanitizedCatalog {
   allTests: Map<string, LabTest>;
   selectableTests: LabTest[]; // status: true
   usablePackages: LabPackage[]; // status: true, cleaned testIds
+  warnings: string[];
 }
