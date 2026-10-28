@@ -63,7 +63,7 @@ export function solveCheapestPlan(
       const uncoveredIds = requestedIds.filter((id) => !packageCoveredSet.has(id));
 
       let standaloneCost = 0;
-      const standaloneItems: PlanItem[] = [];
+      const standaloneTests: { id: string; name: string; price: number }[] = [];
 
       for (const uncId of uncoveredIds) {
         const test = allTests.get(uncId);
@@ -73,33 +73,60 @@ export function solveCheapestPlan(
           return;
         }
         standaloneCost += test.price;
-        standaloneItems.push({
-          type: 'test',
+        standaloneTests.push({
           id: test.id,
           name: test.name,
           price: test.price,
-          covers: [test.id],
         });
       }
 
       const totalCost = currentPackageCost + standaloneCost;
 
-      // Build package items with covers in user selection order
-      const packageItems: PlanItem[] = chosenPackages.map((pkg) => {
-        const covers = requestedIds.filter((reqId) => pkg.testIds.includes(reqId));
-        return {
-          type: 'package',
+      // Item candidates sorted alphabetically by id
+      type ItemSkeleton = {
+        type: 'package' | 'test';
+        id: string;
+        name: string;
+        price: number;
+        canCover: (testId: string) => boolean;
+      };
+
+      const itemSkeletons: ItemSkeleton[] = [
+        ...chosenPackages.map((pkg) => ({
+          type: 'package' as const,
           id: pkg.id,
           name: pkg.name,
           price: pkg.price,
+          canCover: (testId: string) => pkg.testIds.includes(testId),
+        })),
+        ...standaloneTests.map((test) => ({
+          type: 'test' as const,
+          id: test.id,
+          name: test.name,
+          price: test.price,
+          canCover: (testId: string) => test.id === testId,
+        })),
+      ].sort((a, b) => a.id.localeCompare(b.id));
+
+      // Rule 5: Assign each selected test to exactly one item (the first in sorted item-ID order),
+      // preserving the user's selection order in covers.
+      const assignedTests = new Set<string>();
+      const allItems: PlanItem[] = itemSkeletons.map((skeleton) => {
+        const covers: string[] = [];
+        for (const reqId of requestedIds) {
+          if (!assignedTests.has(reqId) && skeleton.canCover(reqId)) {
+            assignedTests.add(reqId);
+            covers.push(reqId);
+          }
+        }
+        return {
+          type: skeleton.type,
+          id: skeleton.id,
+          name: skeleton.name,
+          price: skeleton.price,
           covers,
         };
       });
-
-      // Combine items and sort alphabetically by id
-      const allItems = [...packageItems, ...standaloneItems].sort((a, b) =>
-        a.id.localeCompare(b.id),
-      );
 
       // Extra tests sorted alphabetically by id
       const sortedExtraTests = Array.from(extraTestSet).sort((a, b) => a.localeCompare(b));

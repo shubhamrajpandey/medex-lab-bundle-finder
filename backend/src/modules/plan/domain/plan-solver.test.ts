@@ -148,6 +148,31 @@ describe('plan-solver (Optimization Algorithm)', () => {
     ]);
   });
 
+  it('assigns each selected test to exactly one item when packages overlap (no duplicate covers)', () => {
+    // Overlapping packages: P01 covers T01, T02; P02 covers T02, T03
+    const mockPackages: LabPackage[] = [
+      { id: 'P01', name: 'Bundle A', price: 100, testIds: ['T01', 'T02'], status: true },
+      { id: 'P02', name: 'Bundle B', price: 100, testIds: ['T02', 'T03'], status: true },
+    ];
+    const selection = ['T02', 'T03', 'T01'];
+    const plan = solveCheapestPlan(selection, testsMap, mockPackages);
+
+    expect(plan.items).toHaveLength(2);
+    expect(plan.items.map((i) => i.id)).toEqual(['P01', 'P02']);
+
+    // P01 has smaller ID than P02, so P01 gets T02 and T01; P02 gets only T03
+    const p01Item = plan.items.find((i) => i.id === 'P01')!;
+    const p02Item = plan.items.find((i) => i.id === 'P02')!;
+
+    expect(p01Item.covers).toEqual(['T02', 'T01']);
+    expect(p02Item.covers).toEqual(['T03']);
+
+    // Assert the covers arrays contain no duplicates and their union equals the selection
+    const allCovers = plan.items.flatMap((i) => i.covers);
+    expect(new Set(allCovers).size).toBe(allCovers.length);
+    expect(new Set(allCovers)).toEqual(new Set(selection));
+  });
+
   it('runs within performance budget (< 10ms)', () => {
     const start = performance.now();
     for (let i = 0; i < 20; i++) {
