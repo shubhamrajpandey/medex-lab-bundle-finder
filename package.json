@@ -1,0 +1,13 @@
+{
+  "name": "medex-lab-bundle-finder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MedEx Lab Test Bundle Finder take-home assessment",
+  "scripts": {
+    "test": "npm --prefix backend test",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}
