@@ -261,6 +261,6 @@ The test suite is built on Vitest and covers:
 
 ## 11. AI Usage
 
-Antigravity (Google DeepMind) was used during this project to assist with project scaffolding, initial boilerplate generation, unit test case creation, UI component structuring, and generating this README. All generated code and algorithms were thoroughly reviewed, audited, and tested. I fully understand and can explain every architectural decision and line of code during the interview.
+Antigravity (Google DeepMind) was used during this project to assist with project scaffolding, initial boilerplate generation, unit test case creation, UI component structuring, and generating this README. I fully understand and can explain every architectural decision and line of code during the interview.
 
-*Candidate note: [Reviewed and approved by Shubham Raj Pandey]*
+*Candidate note: [Reviewed by Shubham Raj Pandey]*
