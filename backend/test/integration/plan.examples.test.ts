@@ -65,17 +65,61 @@ describe('Integration: Plan API Examples & Error Contract (POST /api/plan)', () 
   });
 
   describe('Error Contracts (400 & 422)', () => {
-    it('returns HTTP 400 with EMPTY_SELECTION when testIds is empty or missing', async () => {
+    it('returns HTTP 400 with EMPTY_SELECTION on malformed JSON body', async () => {
       const res = await fetch(`${baseUrl}/api/plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testIds: [] }),
+        body: '{"testIds": [',
       });
 
       expect(res.status).toBe(400);
       const data = (await res.json()) as PlanErrorResponseDto;
       expect(data.error).toBe('EMPTY_SELECTION');
       expect(data.testIds).toEqual([]);
+    });
+
+    it('returns HTTP 400 with EMPTY_SELECTION when testIds is empty, missing, or not an array', async () => {
+      const res1 = await fetch(`${baseUrl}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testIds: [] }),
+      });
+      expect(res1.status).toBe(400);
+      const data1 = (await res1.json()) as PlanErrorResponseDto;
+      expect(data1.error).toBe('EMPTY_SELECTION');
+      expect(data1.testIds).toEqual([]);
+
+      const res2 = await fetch(`${baseUrl}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testIds: 'T01' }),
+      });
+      expect(res2.status).toBe(400);
+      const data2 = (await res2.json()) as PlanErrorResponseDto;
+      expect(data2.error).toBe('EMPTY_SELECTION');
+      expect(data2.testIds).toEqual([]);
+    });
+
+    it('returns HTTP 400 with INVALID_TESTS when testIds contains non-string elements', async () => {
+      const res1 = await fetch(`${baseUrl}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testIds: [123, 'T01'] }),
+      });
+      expect(res1.status).toBe(400);
+      const data1 = (await res1.json()) as PlanErrorResponseDto;
+      expect(data1.error).toBe('INVALID_TESTS');
+      expect(data1.testIds).toEqual(['123']);
+
+      const res2 = await fetch(`${baseUrl}/api/plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testIds: [123, null] }),
+      });
+      expect(res2.status).toBe(400);
+      const data2 = (await res2.json()) as PlanErrorResponseDto;
+      expect(data2.error).toBe('INVALID_TESTS');
+      expect(data2.testIds).toEqual(['123', 'null']);
     });
 
     it('returns HTTP 400 with INVALID_TESTS listing unknown or inactive tests', async () => {

@@ -25,35 +25,44 @@ export function validatePlanRequest(body: unknown, catalogRepo: CatalogRepositor
     throw new EmptySelectionError();
   }
 
-  // Rule 5: Deduplicate while preserving order of first appearance
-  const uniqueTestIds: string[] = [];
+  // Deduplicate entries while preserving selection order
+  const uniqueItems: { raw: unknown; str: string }[] = [];
   const seen = new Set<string>();
 
   for (const rawId of rawTestIds) {
-    if (typeof rawId === 'string' && rawId.trim().length > 0) {
-      if (!seen.has(rawId)) {
-        seen.add(rawId);
-        uniqueTestIds.push(rawId);
-      }
+    const str = String(rawId);
+    if (!seen.has(str)) {
+      seen.add(str);
+      uniqueItems.push({ raw: rawId, str });
     }
   }
 
-  if (uniqueTestIds.length === 0) {
+  // If only empty/whitespace strings were provided, treat as EMPTY_SELECTION
+  const nonBlankItems = uniqueItems.filter(
+    (item) => typeof item.raw !== 'string' || item.raw.trim().length > 0,
+  );
+  if (nonBlankItems.length === 0) {
     throw new EmptySelectionError();
   }
 
-  // Rule 4: Verify all tests exist and are active (status: true)
+  // Rule 4: Verify all tests exist, are strings, and are active (status: true)
   const invalidTestIds: string[] = [];
-  for (const testId of uniqueTestIds) {
-    const test = catalogRepo.findTestById(testId);
+  for (const item of nonBlankItems) {
+    if (typeof item.raw !== 'string') {
+      invalidTestIds.push(item.str);
+      continue;
+    }
+    const test = catalogRepo.findTestById(item.str);
     if (!test || test.status === false) {
-      invalidTestIds.push(testId);
+      invalidTestIds.push(item.str);
     }
   }
 
   if (invalidTestIds.length > 0) {
     throw new InvalidTestsError(invalidTestIds);
   }
+
+  const validTestIds = nonBlankItems.map((item) => item.str);
 
   // Rule 4: Tests with price: null can only be obtained through an active package
   const packageCoverableTests = new Set<string>();
@@ -64,7 +73,7 @@ export function validatePlanRequest(body: unknown, catalogRepo: CatalogRepositor
   }
 
   const unobtainableTestIds: string[] = [];
-  for (const testId of uniqueTestIds) {
+  for (const testId of validTestIds) {
     const test = catalogRepo.findTestById(testId);
     if (test && test.price === null && !packageCoverableTests.has(testId)) {
       unobtainableTestIds.push(testId);
@@ -75,5 +84,5 @@ export function validatePlanRequest(body: unknown, catalogRepo: CatalogRepositor
     throw new NotAvailableError(unobtainableTestIds);
   }
 
-  return uniqueTestIds;
+  return validTestIds;
 }

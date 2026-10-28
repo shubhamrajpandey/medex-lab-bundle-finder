@@ -29,9 +29,11 @@ describe('plan.validator', () => {
 
   const repo = new InMemoryCatalogRepository(mockCatalog);
 
-  it('throws EmptySelectionError when body is empty or testIds is missing', () => {
+  it('throws EmptySelectionError when body is empty, testIds is missing, or not an array', () => {
     expect(() => validatePlanRequest(null, repo)).toThrow(EmptySelectionError);
     expect(() => validatePlanRequest({}, repo)).toThrow(EmptySelectionError);
+    expect(() => validatePlanRequest({ testIds: 'T01' }, repo)).toThrow(EmptySelectionError);
+    expect(() => validatePlanRequest({ testIds: 123 }, repo)).toThrow(EmptySelectionError);
     expect(() => validatePlanRequest({ testIds: [] }, repo)).toThrow(EmptySelectionError);
     expect(() => validatePlanRequest({ testIds: ['   '] }, repo)).toThrow(EmptySelectionError);
 
@@ -43,6 +45,32 @@ describe('plan.validator', () => {
       expect(appErr.statusCode).toBe(400);
       expect(appErr.code).toBe('EMPTY_SELECTION');
       expect(appErr.testIds).toEqual([]);
+    }
+  });
+
+  it('rejects non-string testIds with 400 INVALID_TESTS and stringified entries', () => {
+    // [123, "T01"] -> 123 is non-string
+    try {
+      validatePlanRequest({ testIds: [123, 'T01'] }, repo);
+      expect.fail('Should have thrown InvalidTestsError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(InvalidTestsError);
+      const appErr = err as InvalidTestsError;
+      expect(appErr.statusCode).toBe(400);
+      expect(appErr.code).toBe('INVALID_TESTS');
+      expect(appErr.testIds).toEqual(['123']);
+    }
+
+    // [123, null] -> both are non-string
+    try {
+      validatePlanRequest({ testIds: [123, null] }, repo);
+      expect.fail('Should have thrown InvalidTestsError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(InvalidTestsError);
+      const appErr = err as InvalidTestsError;
+      expect(appErr.statusCode).toBe(400);
+      expect(appErr.code).toBe('INVALID_TESTS');
+      expect(appErr.testIds).toEqual(['123', 'null']);
     }
   });
 
